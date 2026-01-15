@@ -49,3 +49,13 @@
   direction: ltr;
   -webkit-font-smoothing: antialiased;
 }
+
+.sidebar-link {
+  justify-content: center;
+  flex-direction: column;
+  height: 80px;
+  width: 80px;
+  margin: 0 auto 1rem auto;
+  border-radius: 1rem;
+  transition: all 0.3s ease;
+}

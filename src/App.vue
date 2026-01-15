@@ -1,29 +1,28 @@
 <script setup lang="ts">
-import { RouterLink, RouterView } from 'vue-router'
+import { RouterView } from 'vue-router'
 import SideBar from './components/SideBar.vue'
+import { useRoute } from 'vue-router';
+import { capitalize, computed } from 'vue';
+
+const route = useRoute();
+const path = computed(() => route.path);
 </script>
 
 <template>
 
   <body class="bg-gray-50 dark:bg-gray-900 font-display text-gray-800 dark:text-gray-200 overflow-hidden">
-
-    <!-- <header>
-      <img alt="Vue logo" class="logo" src="@/assets/logo.svg" width="125" height="125" />
-
-      <nav>
-        <RouterLink to="/">Home</RouterLink>
-        <RouterLink to="/about">About</RouterLink>
-      </nav>
-    </header> -->
-
     <div class="flex h-screen w-full">
       <SideBar />
-      <RouterView class="flex-1 flex flex-col h-screen overflow-hidden relative bg-gray-50 dark:bg-gray-900 z-0">
+      <div class="flex-1 flex flex-col h-screen overflow-hidden relative bg-gray-50 dark:bg-gray-900 z-0">
         <header class="h-16 bg-transparent flex justify-between items-center px-8 py-4 shrink-0">
-
+          <h2 class="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">
+            BEACON <span class="text-blue-600 capitalize">{{ capitalize(path.substring(1)) }}</span>
+          </h2>
         </header>
-        <main class="flex-1 overflow-y-auto px-8 pb-8 scroll-smooth"></main>
-      </RouterView>
+        <main class="flex-1 overflow-y-auto px-8 pb-8 scroll-smooth">
+          <RouterView />
+        </main>
+      </div>
     </div>
   </body>
 </template>
