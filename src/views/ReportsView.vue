@@ -1,30 +1,20 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { useReports } from '@/composables/useReports';
+import { useReportsStore } from '@/stores/reportsStore';
 
-const currentView = ref('feeders'); // 'feeders', 'barangays', 'individuals'
+const { getBarangaySummary, getPendingCountByFeeder } = useReports();
+const store = useReportsStore();
+
+
+type View = 'feeders' | 'barangays' | 'individuals';
+
+const currentView = ref<View>('feeders');
 const currentFeederId = ref<number | null>(null);
 const currentBarangay = ref<string | null>(null);
-const selectedItems = ref(new Set<number>());
-const feeders = ref([
-    { id: 1 },
-    { id: 2 },
-    { id: 3 },
-    { id: 4 },
-    { id: 5 },
-    { id: 6 },
-    { id: 7 },
-    { id: 8 },
-    { id: 9 },
-    { id: 10 },
-    { id: 11 },
-    { id: 12 },
-    { id: 13 },
-    { id: 14 },
-]);
+const feeders = Array.from({ length: 14 }, (_, i) => ({ id: i + 1 }));
+
 const isModalOpen = ref(false);
-// const showScheduledDate = ref(false);
-// const showDispatchSection = ref(false);
-// const customCoordinatesEnabled = ref(false);
 const modalFormData = ref({
     outageType: 'unscheduled',
     scheduledAt: '',
@@ -34,74 +24,90 @@ const modalFormData = ref({
     dispatchTeam: '',
     description: '',
     eta: '',
-    coordinates: '',
     affectedBarangays: [] as string[]
 });
-const closeModal = () => {
-    isModalOpen.value = false;
-};
-const feederBarangays = ref(['Barangay 1', 'Barangay 2', 'Barangay 3']);
+
+const barangayTableData = computed(() => {
+    if (!currentFeederId.value) return [];
+    return getBarangaySummary([currentFeederId.value]);
+});
+// const individualTableData = computed(() => {
+//     if (!currentFeederId.value || !currentBarangay.value) return [];
+//     return store.getPendingReports.filter(
+//         r =>
+//             r.feeder === currentFeederId.value &&
+//             r.barangay === currentBarangay.value
+//     );
+// });
+const feederBarangays = computed(() =>
+    barangayTableData.value.map(b => b.barangay)
+);
 const feederBarangaysLength = computed(() => feederBarangays.value.length);
-const toggleBarangay = (barangay: string) => {
-    const index = modalFormData.value.affectedBarangays.indexOf(barangay);
-    if (index > -1) {
-        modalFormData.value.affectedBarangays.splice(index, 1);
-    } else {
-        modalFormData.value.affectedBarangays.push(barangay);
-    }
-};
-const selectAllBarangays = (e: Event) => {
-    const checked = (e.target as HTMLInputElement).checked;
-    modalFormData.value.affectedBarangays = checked ? [...feederBarangays.value] : [];
-};
+
+
 const showBarangayView = (feederId: number) => {
     currentFeederId.value = feederId;
     currentView.value = 'barangays';
-    // Fetch your data here...
 };
-
+const showIndividualView = (barangay: string) => {
+    currentBarangay.value = barangay;
+    currentView.value = 'individuals';
+};
 const handleBack = () => {
     if (currentView.value === 'individuals') {
         currentView.value = 'barangays';
+        currentBarangay.value = null;
     } else if (currentView.value === 'barangays') {
         currentView.value = 'feeders';
+        currentFeederId.value = null;
     }
 };
 
-// const handleBulkUpdate = () => {
-//     if (selectedItems.value.size === 0) return;
-//     (window as any).showUpdateModal(Array.from(selectedItems.value), 'reports', {
-//         currentView: currentView.value,
-//         currentFeederId: currentFeederId.value,
-//         currentBarangay: currentBarangay.value
-//     });
-// };
+const openModal = () => {
+    isModalOpen.value = true;
+};
+const closeModal = () => {
+    isModalOpen.value = false;
+};
+const toggleBarangay = (barangay: string) => {
+    const list = modalFormData.value.affectedBarangays;
+    const index = list.indexOf(barangay);
+    index > -1 ? list.splice(index, 1) : list.push(barangay);
+};
+const selectAllBarangays = (e: Event) => {
+    const checked = (e.target as HTMLInputElement).checked;
+    modalFormData.value.affectedBarangays = checked
+        ? [...feederBarangays.value]
+        : [];
+};
+
+const handleFormSubmit = () => {
+    const payload = {
+        feederId: currentFeederId.value,
+        barangays: modalFormData.value.affectedBarangays,
+        ...modalFormData.value
+    };
+
+    console.log('Submitting announcement:', payload);
+
+    closeModal();
+};
 
 const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'F5') {
-        e.preventDefault();
-    }
-    if (e.key === 'Escape') {
-        handleBack();
-    }
+    if (e.key === 'Escape') handleBack();
 };
 
-const handleOutsideClick = (e: MouseEvent) => {
-    const popup = document.getElementById('profileDropdown');
-    const button = document.getElementById('profileTrigger');
-    if (popup && button && !popup.contains(e.target as Node) && !button.contains(e.target as Node)) {
-        popup.classList.add("hidden");
-    }
+const hasPendingReports = (feederId: number) => {
+    return getPendingCountByFeeder(feederId) > 0;
 };
 
-onMounted(() => {
+onMounted(async () => {
+    await store.fetchReports();
     document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('click', handleOutsideClick);
 });
 
 onUnmounted(() => {
     document.removeEventListener('keydown', handleKeyDown);
-    document.removeEventListener('click', handleOutsideClick);
 });
 </script>
 
@@ -111,7 +117,8 @@ onUnmounted(() => {
         <div class="group relative overflow-hidden rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer h-40 w-full feeder-tile"
             v-for="feeder in feeders" :key="feeder.id" @click="showBarangayView(feeder.id)">
 
-            <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500 group-hover:w-3 transition-all duration-300">
+            <div class="absolute left-0 top-0 bottom-0 w-1.5  group-hover:w-3 transition-all duration-300"
+                :class="getPendingCountByFeeder(feeder.id) > 0 ? 'bg-red-500' : 'bg-blue-500'">
             </div>
 
             <div class="h-full px-6 py-5 pl-8 flex flex-col justify-between relative z-10">
@@ -121,7 +128,7 @@ onUnmounted(() => {
                         <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Substation
                             Area</p>
                         <h3 class="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">Feeder {{ feeder.id
-                            }}</h3>
+                        }}</h3>
                     </div>
 
                     <div
@@ -131,13 +138,22 @@ onUnmounted(() => {
                 </div>
 
                 <div class="flex items-center justify-between mt-auto">
-                    <div
+                    <div v-if="!hasPendingReports(feeder.id)"
                         class="px-3 py-1.5 rounded-lg border bg-gray-50 text-gray-500 border-gray-100 dark:bg-gray-700/30 dark:text-gray-400 dark:border-gray-600 text-xs font-bold flex items-center gap-2">
                         <span class="relative flex h-2.5 w-2.5">
 
                             <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-gray-400"></span>
                         </span>
-                        <span>0 Pending</span>
+                        <span>{{ getPendingCountByFeeder(feeder.id) }} Pending</span>
+                    </div>
+                    <div v-else
+                        class="px-3 py-1.5 rounded-lg border bg-red-50 text-red-600 border-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/30 text-xs font-bold flex items-center gap-2">
+                        <span class="relative flex h-2.5 w-2.5">
+                            <span
+                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                        </span>
+                        <span>1 Pending</span>
                     </div>
 
                     <span
@@ -188,7 +204,7 @@ onUnmounted(() => {
                         <option value="Completed">Completed</option>
                     </select>
                     <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                        <span class="material-icons text-gray-400 text-sm">expand_more</span>
+                        <!-- <span class="material-icons text-gray-400 text-sm">expand_more</span> -->
                     </div>
                 </div>
 
@@ -203,7 +219,7 @@ onUnmounted(() => {
                         </option>
                     </select>
                     <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                        <span class="material-icons text-gray-400 text-sm">expand_more</span>
+                        <!-- <span class="material-icons text-gray-400 text-sm">expand_more</span> -->
                     </div>
                 </div>
 
@@ -374,7 +390,19 @@ onUnmounted(() => {
                         </tr>
                     </thead>
                     <tbody id="reportsBody"
-                        class="divide-y divide-gray-100 dark:divide-gray-700 text-sm text-gray-600 dark:text-gray-300">
+                        class="w-full divide-y divide-gray-100 dark:divide-gray-700 text-sm text-gray-600 dark:text-gray-300">
+                        <tr v-for="row in barangayTableData" :key="row.barangay"
+                            @click="showIndividualView(row.barangay)" class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td></td>
+                            <td>{{ row.barangay }}</td>
+                            <td>{{ row.count }}</td>
+                            <td>{{ row.cause }}</td>
+                            <td>{{ row.status }}</td>
+                            <td>{{ (row.latitude && row.longitude) ? `${row.latitude}, ${row.longitude}` : '—' }}</td>
+                            <td>
+                                <button @click.stop="openModal">Update</button>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>

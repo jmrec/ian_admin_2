@@ -27,12 +27,7 @@ const router = createRouter({
       path: '/outages',
       name: 'outages',
       component: () => import('../views/OutageView.vue'),
-    },
-    // {
-    //   path: '/dashboard',
-    //   name: 'dashboard',
-    //   component: () => import('../views/DashboardView.vue'),
-    // },
+    }
   ],
 })
 
