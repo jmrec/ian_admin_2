@@ -6,6 +6,24 @@ import { capitalize, computed } from 'vue';
 
 const route = useRoute();
 const path = computed(() => route.path);
+
+function toTitleCase(str: string): string {
+  str = str.toLowerCase();
+
+  return str.replace(/(?:^|\s|-)\S/g, function (match) {
+    return match.toUpperCase();
+  });
+}
+
+function getTitleFromPath(path: string): string {
+  if (path === '/map') {
+    return 'Live Map';
+  } else if (path === '/notifications') {
+    return 'Inbox';
+  } else {
+    return toTitleCase(path.substring(1));
+  }
+}
 </script>
 
 <template>
@@ -16,7 +34,7 @@ const path = computed(() => route.path);
       <div class="flex-1 flex flex-col h-screen overflow-hidden relative bg-gray-50 dark:bg-gray-900 z-0">
         <header class="h-16 bg-transparent flex justify-between items-center px-8 py-4 shrink-0">
           <h2 class="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">
-            BEACON <span class="text-blue-600 capitalize">{{ capitalize(path.substring(1)) }}</span>
+            BEACON <span class="text-blue-600 capitalize">{{ getTitleFromPath(path) }}</span>
           </h2>
         </header>
         <main class="flex-1 overflow-y-auto px-8 pb-8 scroll-smooth">
